@@ -11,7 +11,11 @@ import {
   Mail,
   Fingerprint,
   Eye,
-  EyeOff
+  EyeOff,
+  Radio,
+  Wifi,
+  Zap,
+  Network
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -72,6 +76,55 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {/* Network Topology Detection Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+              <Network size={120} />
+            </div>
+            
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Radio size={20} className="text-indigo-400" />
+                Network Intelligence Prober
+              </h3>
+              <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                <Zap size={10} className="animate-pulse" /> Live Detection
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-800/50 p-5 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Detected Type</p>
+                <p className="text-xl font-black text-indigo-400">{device.networkType}</p>
+                <div className="mt-4 flex gap-1">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= 4 ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'bg-slate-700'}`} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-800/50 p-5 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Carrier ID</p>
+                <p className="text-xl font-black text-white">{device.carrierName}</p>
+                <p className="text-[10px] text-slate-600 font-mono mt-2">MCC: 310 | MNC: 120</p>
+              </div>
+
+              <div className="bg-slate-800/50 p-5 rounded-2xl border border-white/5">
+                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Signal Floor</p>
+                <p className="text-xl font-black text-white">{device.signalStrength} <span className="text-xs font-normal text-slate-500">dBm</span></p>
+                <p className="text-[10px] text-emerald-400 font-bold mt-2 uppercase">Excellent Quality</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center gap-4 p-4 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
+              <Wifi size={16} className="text-indigo-400" />
+              <div className="flex-1">
+                <p className="text-xs font-bold text-slate-300">Secondary Interface: Wi-Fi 7 (802.11be)</p>
+                <p className="text-[10px] text-slate-500">Connected to DUPLEX-HQ-SECURE (6GHz Band)</p>
+              </div>
+            </div>
+          </div>
+
           {/* Identity and Accounts Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
@@ -102,36 +155,6 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
                   <span className="text-xs text-slate-500 uppercase font-bold">Primary Account</span>
                 </div>
                 <p className="font-mono text-purple-300">{maskString(device.associatedEmail)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Detailed OS Information */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
-              <Activity size={20} className="text-green-400" />
-              OS Subsystem & Hardware ID
-            </h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-3 border-b border-slate-800">
-                <span className="text-slate-400 text-sm">Full OS Build Signature</span>
-                <span className="font-mono text-xs text-blue-400 bg-blue-500/5 px-2 py-1 rounded">{device.osBuild}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-800">
-                <span className="text-slate-400 text-sm">Hardware Serial</span>
-                <span className="font-mono text-sm text-slate-200">{device.serialNumber}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-800">
-                <span className="text-slate-400 text-sm">IMEI Baseband</span>
-                <span className="font-mono text-sm text-slate-200">{maskString(device.imei)}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-800">
-                <span className="text-slate-400 text-sm">Kernel Architecture</span>
-                <span className="font-mono text-sm text-slate-200">{device.cpu}</span>
-              </div>
-              <div className="flex justify-between items-center py-3">
-                <span className="text-slate-400 text-sm">Memory Subsystem</span>
-                <span className="font-mono text-sm text-slate-200">{device.ram}</span>
               </div>
             </div>
           </div>

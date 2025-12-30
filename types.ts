@@ -13,6 +13,27 @@ export enum OSType {
   UNKNOWN = 'Unknown'
 }
 
+export interface User {
+  email: string;
+  name: string;
+  role?: 'Admin' | 'Operator';
+  avatar?: string;
+}
+
+export interface Operator extends User {
+  id: string;
+  joinedDate: string;
+  status: 'active' | 'suspended';
+}
+
+export interface LoginLog {
+  id: string;
+  userName: string;
+  userEmail: string;
+  timestamp: string;
+  ipAddress: string;
+}
+
 export interface DeviceBug {
   id: string;
   severity: 'low' | 'medium' | 'high';
@@ -35,8 +56,19 @@ export interface DeviceInfo {
   storageUsed: number;
   cpu: string;
   ram: string;
+  networkType: string;
+  signalStrength: number; // -dBm
+  carrierName: string;
   bugs?: DeviceBug[];
   updateAvailable?: boolean;
+}
+
+export interface DeviceProfile {
+  id: string;
+  profileName: string;
+  deviceInfo: DeviceInfo;
+  timestamp: string;
+  category: 'Diagnostic' | 'Audit' | 'Forensic' | 'Custom';
 }
 
 export interface LogEntry {

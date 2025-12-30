@@ -1,5 +1,7 @@
 {
-  "name": "NexusLink Mobile Manager",
+  "name": "Mobile Phone Duplex",
   "description": "A high-end professional suite for mobile device diagnostics, data sanitization, and hardware information via USB connection. Supports Android, iOS, and HarmonyOS with AI-powered health analysis.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

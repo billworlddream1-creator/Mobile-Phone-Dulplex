@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trash2, RefreshCw, AlertTriangle, ShieldX, CheckCircle, Loader2 } from 'lucide-react';
+import { Trash2, RefreshCw, AlertTriangle, ShieldX, CheckCircle, Loader2, HardDrive } from 'lucide-react';
 
 interface ActionCenterProps {
   onAction: (actionName: string) => void;
@@ -8,38 +8,46 @@ interface ActionCenterProps {
 
 const ActionCenter: React.FC<ActionCenterProps> = ({ onAction }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentAction, setCurrentAction] = useState<{id: string, name: string, description: string} | null>(null);
+  const [currentAction, setCurrentAction] = useState<{id: string, name: string, description: string, warning: string, color: string} | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const actions = [
     { 
-      id: 'format', 
-      name: 'Factory Format', 
-      description: 'Complete wipes all user data and resets the device firmware to factory defaults.', 
+      id: 'format-full', 
+      name: 'Full Factory Format', 
+      description: 'Total partition wipe including system, user data, and cache regions. Resets ROM to base state.', 
       icon: RefreshCw,
-      color: 'bg-red-500',
-      warning: 'This action is irreversible. All photos, messages, and accounts will be lost.'
+      color: 'bg-rose-600',
+      warning: 'This is the ultimate reset. All system settings, cryptographic keys, and user data will be destroyed.'
+    },
+    { 
+      id: 'format-user', 
+      name: 'User Data Format', 
+      description: 'Wipe /data and /sdcard partitions while keeping the current OS environment intact.', 
+      icon: HardDrive,
+      color: 'bg-amber-600',
+      warning: 'Personal files will be lost, but OS settings and carrier configurations may persist.'
     },
     { 
       id: 'wipe', 
-      name: 'Secure Wipe', 
-      description: 'Overwrites existing user data with random patterns to prevent forensic recovery.', 
+      name: 'DoD Secure Wipe', 
+      description: 'Advanced 7-pass overwrite sanitization to prevent all forms of physical hardware recovery.', 
       icon: ShieldX,
-      color: 'bg-orange-500',
-      warning: 'Sanitization process meets DoD 5220.22-M standards.'
+      color: 'bg-indigo-600',
+      warning: 'Process takes longer due to multiple data overwrite passes.'
     },
     { 
       id: 'cache', 
-      name: 'Clear Cache', 
-      description: 'Removes temporary system files and application cache to free up storage.', 
+      name: 'Cache Partition Clean', 
+      description: 'Safe removal of OTA temp files, ART compiler cache, and transient system buffers.', 
       icon: Trash2,
-      color: 'bg-blue-500',
-      warning: 'Safe operation. No user files will be affected.'
+      color: 'bg-emerald-600',
+      warning: 'Safe operation. No persistent data loss expected.'
     }
   ];
 
-  const handleStartAction = (action: typeof actions[0]) => {
+  const handleStartAction = (action: any) => {
     setCurrentAction(action);
     setIsModalOpen(true);
   };
@@ -48,7 +56,6 @@ const ActionCenter: React.FC<ActionCenterProps> = ({ onAction }) => {
     setIsProcessing(true);
     setProgress(0);
     
-    // Simulate long-running process
     for(let i = 0; i <= 100; i += 10) {
       setProgress(i);
       await new Promise(r => setTimeout(r, 400));
@@ -64,75 +71,79 @@ const ActionCenter: React.FC<ActionCenterProps> = ({ onAction }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-start space-x-3">
-        <AlertTriangle className="text-red-500 shrink-0" size={24} />
+      <div className="bg-rose-500/10 border border-rose-500/20 p-6 rounded-3xl flex items-start space-x-4">
+        <AlertTriangle className="text-rose-500 shrink-0" size={28} />
         <div>
-          <h4 className="text-red-500 font-bold">Danger Zone</h4>
-          <p className="text-sm text-slate-400">The following operations interact directly with the device filesystem. Ensure the device has at least 50% battery and a stable USB connection.</p>
+          <h4 className="text-rose-500 font-bold text-lg">Duplex Critical Operations</h4>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Formatting or wiping a device via the Duplex interface bypasses local OS safety prompts. 
+            Ensure the device is powered via a stable 5V/2A+ source. Disconnection during partition table formatting can result in a hard-brick state.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {actions.map((action) => (
-          <div key={action.id} className="bg-slate-800/40 border border-slate-700 p-6 rounded-2xl flex flex-col h-full">
-            <div className={`w-12 h-12 rounded-xl ${action.color}/10 flex items-center justify-center mb-4`}>
-              <action.icon className={action.color.replace('bg-', 'text-')} size={24} />
+          <div key={action.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] flex flex-col h-full hover:border-slate-600 transition-all group">
+            <div className={`w-14 h-14 rounded-2xl ${action.color}/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+              <action.icon className={action.color.replace('bg-', 'text-')} size={28} />
             </div>
-            <h3 className="text-lg font-bold mb-2">{action.name}</h3>
-            <p className="text-sm text-slate-400 mb-6 flex-1">{action.description}</p>
+            <h3 className="text-xl font-bold mb-3">{action.name}</h3>
+            <p className="text-sm text-slate-500 mb-8 flex-1 leading-normal">{action.description}</p>
             <button 
               onClick={() => handleStartAction(action)}
-              className={`w-full py-3 rounded-xl font-bold transition-all ${action.color} hover:brightness-110 active:scale-[0.98] shadow-lg shadow-${action.color}/20`}
+              className={`w-full py-4 rounded-2xl font-bold transition-all ${action.color} hover:brightness-110 active:scale-[0.98] shadow-xl shadow-${action.color.split('-')[1]}-500/20 text-white`}
             >
-              Initialize {action.id === 'format' ? 'Factory' : action.id === 'wipe' ? 'Sanitization' : 'Cleaning'}
+              Execute {action.name.split(' ').pop()}
             </button>
           </div>
         ))}
       </div>
 
       {isModalOpen && currentAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl">
             {!isProcessing ? (
               <>
-                <div className="flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full mx-auto mb-6">
-                  <AlertTriangle className="text-red-500" size={32} />
+                <div className="flex items-center justify-center w-20 h-20 bg-rose-500/10 rounded-full mx-auto mb-8">
+                  <AlertTriangle className="text-rose-500" size={40} />
                 </div>
-                <h2 className="text-2xl font-bold text-center mb-2">Confirm Action</h2>
-                <p className="text-center text-slate-400 mb-6">
-                  Are you sure you want to perform <span className="text-white font-semibold">"{currentAction.name}"</span> on the connected device?
+                <h2 className="text-3xl font-black text-center mb-4">Authorization Required</h2>
+                <p className="text-center text-slate-400 mb-8 leading-relaxed">
+                  You are about to initialize <span className="text-white font-bold">"{currentAction.name}"</span>. 
+                  This will modify the internal partition structure of the linked device.
                 </p>
-                <div className="bg-slate-800 rounded-xl p-4 mb-8">
-                  <p className="text-xs text-orange-400 uppercase font-bold tracking-widest mb-2">Notice</p>
+                <div className="bg-slate-950 border border-white/5 rounded-2xl p-5 mb-10">
+                  <p className="text-[10px] text-amber-500 uppercase font-black tracking-widest mb-2">Operation Risk Assessment</p>
                   <p className="text-sm text-slate-300 italic">"{currentAction.warning}"</p>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex space-x-4">
                   <button 
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-3 border border-slate-700 rounded-xl font-bold text-slate-400 hover:bg-slate-800"
+                    className="flex-1 py-4 border border-slate-700 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-colors"
                   >
-                    Cancel
+                    Abort
                   </button>
                   <button 
                     onClick={executeAction}
-                    className="flex-1 py-3 bg-red-600 rounded-xl font-bold text-white hover:bg-red-700"
+                    className="flex-1 py-4 bg-rose-600 rounded-2xl font-bold text-white hover:bg-rose-700 transition-colors shadow-lg shadow-rose-600/20"
                   >
-                    Confirm & Proceed
+                    Confirm & Start
                   </button>
                 </div>
               </>
             ) : (
               <div className="text-center py-8">
-                <Loader2 className="animate-spin mx-auto text-blue-500 mb-6" size={48} />
-                <h2 className="text-2xl font-bold mb-2">Operation in Progress</h2>
-                <p className="text-slate-400 mb-8">Please do not disconnect the USB cable or close the application...</p>
-                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
+                <Loader2 className="animate-spin mx-auto text-indigo-500 mb-8" size={64} />
+                <h2 className="text-3xl font-black mb-4 tracking-tight">Format In Progress</h2>
+                <p className="text-slate-400 mb-10">Rewriting NAND storage sectors. DO NOT INTERRUPT THE DUPLEX LINK.</p>
+                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden mb-4 border border-white/5">
                   <div 
-                    className="h-full bg-blue-500 transition-all duration-300" 
+                    className="h-full bg-indigo-500 transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.5)]" 
                     style={{ width: `${progress}%` }}
                   ></div>
                 </div>
-                <p className="text-sm font-mono text-blue-400">{progress}% Complete</p>
+                <p className="text-lg font-mono font-bold text-indigo-400 tracking-tighter">{progress}% SECTORS MAPPED</p>
               </div>
             )}
           </div>

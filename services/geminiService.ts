@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { DeviceInfo } from "../types";
 
 export const getDeviceDiagnostic = async (device: DeviceInfo): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
@@ -34,7 +34,7 @@ export const getDeviceDiagnostic = async (device: DeviceInfo): Promise<string> =
 };
 
 export const generateDeviceBlueprint = async (device: DeviceInfo): Promise<string | null> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -63,5 +63,26 @@ export const generateDeviceBlueprint = async (device: DeviceInfo): Promise<strin
   } catch (error) {
     console.error("Blueprint Generation Error:", error);
     return null;
+  }
+};
+
+export const findNearbySupport = async (lat: number, lng: number, brand: string): Promise<{text: string, sources: any[]}> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Find 3 high-rated authorized ${brand} repair and service centers near coordinates ${lat}, ${lng}. Provide their names and brief descriptions of their services. Use Google Search to find current businesses.`,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const text = response.text || "No nearby support centers found.";
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    return { text, sources };
+  } catch (error) {
+    console.error("Search Grounding Error:", error);
+    return { text: "Failed to query local support database via Google Search.", sources: [] };
   }
 };
