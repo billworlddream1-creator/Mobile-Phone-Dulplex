@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { Phone, MessageSquare, PhoneIncoming, PhoneOutgoing, PhoneMissed, Search, Filter, Clock, User, MessageCircle } from 'lucide-react';
+import { Phone, MessageSquare, PhoneIncoming, PhoneOutgoing, PhoneMissed, Search, Filter, Clock, User, MessageCircle, Download, Loader2 } from 'lucide-react';
 
 const CommsCenter: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'calls' | 'sms'>('calls');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const callLogs = [
     { id: 1, contact: 'Alice Cooper', number: '+1 (555) 902-1234', type: 'incoming', time: '10:45 AM', duration: '12m 45s' },
@@ -21,6 +22,14 @@ const CommsCenter: React.FC = () => {
     { id: 4, contact: 'Bob Tech Support', lastMsg: 'The server migration is complete.', time: '2 days ago', unread: false },
   ];
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    // Simulate data aggregation and file generation
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsExporting(false);
+    alert('Communication log manifest exported to PC as duplex_comms_dump.csv');
+  };
+
   const filteredCalls = callLogs.filter(log => 
     log.contact.toLowerCase().includes(searchQuery.toLowerCase()) || 
     log.number.includes(searchQuery)
@@ -33,28 +42,38 @@ const CommsCenter: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Communication Interceptor</h2>
           <p className="text-slate-400 text-sm">Real-time interrogation of call telemetry and messaging databases</p>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setActiveSubTab('calls')}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
-              activeSubTab === 'calls' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-slate-300'
-            }`}
+            onClick={handleExport}
+            disabled={isExporting}
+            className="bg-indigo-600/10 text-indigo-400 border border-indigo-600/20 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/5"
           >
-            <Phone size={14} /> Call Logs
+            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {isExporting ? 'Aggregating...' : 'Export Logs to PC'}
           </button>
-          <button
-            onClick={() => setActiveSubTab('sms')}
-            className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
-              activeSubTab === 'sms' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            <MessageSquare size={14} /> SMS Archive
-          </button>
+          <div className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex">
+            <button
+              onClick={() => setActiveSubTab('calls')}
+              className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
+                activeSubTab === 'calls' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Phone size={14} /> Call Logs
+            </button>
+            <button
+              onClick={() => setActiveSubTab('sms')}
+              className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${
+                activeSubTab === 'sms' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <MessageSquare size={14} /> SMS Archive
+            </button>
+          </div>
         </div>
       </div>
 

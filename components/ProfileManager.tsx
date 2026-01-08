@@ -12,7 +12,8 @@ import {
   Search,
   CheckCircle2,
   Clock,
-  Filter
+  Filter,
+  Cloud
 } from 'lucide-react';
 
 interface ProfileManagerProps {
@@ -83,7 +84,12 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProfiles.map((profile) => (
           <div key={profile.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+              {profile.cloudSynced && (
+                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg" title="Cloud Synced">
+                   <Cloud size={14} />
+                </div>
+              )}
               <button 
                 onClick={() => onDelete(profile.id)}
                 className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all"
@@ -107,9 +113,12 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
             </div>
 
             <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Smartphone size={14} className="text-slate-600" />
-                <span>{profile.deviceInfo.model}</span>
+              <div className="flex items-center justify-between text-sm text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Smartphone size={14} className="text-slate-600" />
+                  <span>{profile.deviceInfo.model}</span>
+                </div>
+                {profile.cloudSynced && <span className="text-[10px] text-indigo-400 font-bold">Cloud Verified</span>}
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 <Calendar size={14} className="text-slate-600" />

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DeviceInfo } from '../types';
 import { 
@@ -15,29 +14,54 @@ import {
   Radio,
   Wifi,
   Zap,
-  Network
+  Network,
+  Search,
+  ChevronRight,
+  HardDrive
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface DeviceDashboardProps {
   device: DeviceInfo;
+  onAnalyze?: () => void;
 }
 
-const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
+const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device, onAnalyze }) => {
   const [showSensitive, setShowSensitive] = useState(false);
+  const storageUsedPercent = Math.round((device.storageUsed / device.storageTotal) * 100);
+  
   const storageData = [
     { name: 'Used', value: device.storageUsed },
     { name: 'Free', value: device.storageTotal - device.storageUsed },
   ];
-  const COLORS = ['#3b82f6', '#1e293b'];
 
-  const InfoCard = ({ icon: Icon, label, value, colorClass }: any) => (
-    <div className="bg-slate-800/40 border border-slate-700 p-5 rounded-2xl hover:border-slate-500 transition-all group">
-      <div className="flex items-center space-x-3 mb-3">
-        <div className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${colorClass}`}>
-          <Icon size={18} />
+  const getStorageColor = (percent: number) => {
+    if (percent < 50) return '#10b981'; // Emerald-500
+    if (percent < 75) return '#f59e0b'; // Amber-500
+    if (percent < 90) return '#f97316'; // Orange-500
+    return '#f43f5e'; // Rose-500
+  };
+
+  const getStorageTailwindColor = (percent: number) => {
+    if (percent < 50) return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+    if (percent < 75) return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+    if (percent < 90) return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
+    return 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+  };
+
+  const statusColor = getStorageColor(storageUsedPercent);
+  const COLORS = [statusColor, '#1e293b'];
+
+  const InfoCard = ({ icon: Icon, label, value, colorClass, extra }: any) => (
+    <div className="bg-slate-800/40 border border-slate-700 p-5 rounded-2xl hover:border-slate-500 transition-all group relative overflow-hidden">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${colorClass}`}>
+            <Icon size={18} />
+          </div>
+          <span className="text-slate-400 text-sm font-medium">{label}</span>
         </div>
-        <span className="text-slate-400 text-sm font-medium">{label}</span>
+        {extra}
       </div>
       <p className="text-xl font-bold tracking-tight text-white">{value}</p>
     </div>
@@ -47,7 +71,25 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-indigo-600/5 border border-indigo-500/10 p-6 rounded-[2rem] mb-2">
+        <div>
+          <h2 className="text-2xl font-black text-white flex items-center gap-3">
+            <Zap className="text-indigo-400" size={24} />
+            Device Overview
+          </h2>
+          <p className="text-slate-400 text-sm mt-1 font-medium italic">Handshake verified with {device.brand} secure kernel</p>
+        </div>
+        <button 
+          onClick={onAnalyze}
+          className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 group"
+        >
+          <Search size={20} className="group-hover:scale-110 transition-transform" />
+          Initialize Deep AI Analysis
+          <ChevronRight size={18} className="opacity-50 group-hover:translate-x-1 transition-transform" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <InfoCard 
           icon={Smartphone} 
           label="Model String" 
@@ -67,10 +109,21 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
           colorClass="bg-yellow-500/10 text-yellow-500" 
         />
         <InfoCard 
+          icon={Radio} 
+          label="Signal Strength" 
+          value={`${device.signalStrength} dBm`} 
+          colorClass="bg-teal-500/10 text-teal-500" 
+        />
+        <InfoCard 
           icon={Database} 
           label="NAND Storage" 
           value={`${device.storageTotal} GB`} 
-          colorClass="bg-purple-500/10 text-purple-500" 
+          colorClass="bg-purple-500/10 text-purple-500"
+          extra={
+            <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getStorageTailwindColor(storageUsedPercent)}`}>
+              {storageUsedPercent}% Full
+            </div>
+          }
         />
       </div>
 
@@ -147,22 +200,36 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
                   <Phone size={14} className="text-blue-400" />
                   <span className="text-xs text-slate-500 uppercase font-bold">Active SIM Line</span>
                 </div>
-                <p className="font-mono text-blue-300">{maskString(device.phoneNumber)}</p>
+                <p 
+                  className={`font-mono text-blue-300 cursor-help ${!showSensitive ? 'border-b border-dashed border-blue-300/30' : ''}`}
+                  title={!showSensitive ? "This information is masked for privacy. Click 'Reveal Data' to view." : undefined}
+                >
+                  {maskString(device.phoneNumber)}
+                </p>
               </div>
               <div className="p-4 bg-slate-800/50 rounded-xl border border-white/5">
                 <div className="flex items-center gap-2 mb-2">
                   <Mail size={14} className="text-purple-400" />
                   <span className="text-xs text-slate-500 uppercase font-bold">Primary Account</span>
                 </div>
-                <p className="font-mono text-purple-300">{maskString(device.associatedEmail)}</p>
+                <p 
+                  className={`font-mono text-purple-300 cursor-help ${!showSensitive ? 'border-b border-dashed border-purple-300/30' : ''}`}
+                  title={!showSensitive ? "This information is masked for privacy. Click 'Reveal Data' to view." : undefined}
+                >
+                  {maskString(device.associatedEmail)}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Storage Distribution */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-xl">
-          <h3 className="text-lg font-semibold mb-4 self-start">Disk Architecture</h3>
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center shadow-xl relative overflow-hidden">
+          <h3 className="text-lg font-black mb-4 self-start flex items-center gap-2">
+            <HardDrive size={18} className="text-slate-500" />
+            NAND Architecture
+          </h3>
+          
           <div className="w-full h-56 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -188,18 +255,39 @@ const DeviceDashboard: React.FC<DeviceDashboardProps> = ({ device }) => {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <p className="text-3xl font-bold text-white">{Math.round((device.storageUsed / device.storageTotal) * 100)}%</p>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Encrypted</p>
+              <p className="text-4xl font-black text-white leading-none">{storageUsedPercent}%</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black mt-1">Sectors</p>
             </div>
           </div>
+
+          {/* Storage Health Indicator Bar */}
+          <div className="w-full mt-6 px-2">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Storage Status</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${getStorageTailwindColor(storageUsedPercent).split(' ')[0]}`}>
+                {storageUsedPercent < 50 ? 'Healthy' : storageUsedPercent < 75 ? 'Optimal' : storageUsedPercent < 90 ? 'Critical' : 'Near Capacity'}
+              </span>
+            </div>
+            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-white/5">
+              <div 
+                className="h-full transition-all duration-1000 ease-out"
+                style={{ 
+                  width: `${storageUsedPercent}%`,
+                  backgroundColor: statusColor,
+                  boxShadow: `0 0 10px ${statusColor}44`
+                }}
+              />
+            </div>
+          </div>
+
           <div className="mt-8 grid grid-cols-2 gap-6 w-full">
-            <div className="text-left border-l-2 border-blue-500 pl-3">
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Occupied</p>
-              <p className="text-xl font-bold text-white">{device.storageUsed} GB</p>
+            <div className="text-left border-l-2 pl-3 transition-colors" style={{ borderColor: statusColor }}>
+              <p className="text-[10px] text-slate-500 uppercase font-black">Mapped</p>
+              <p className="text-xl font-black text-white">{device.storageUsed} GB</p>
             </div>
             <div className="text-left border-l-2 border-slate-700 pl-3">
-              <p className="text-[10px] text-slate-500 uppercase font-bold">Unmapped</p>
-              <p className="text-xl font-bold text-white">{device.storageTotal - device.storageUsed} GB</p>
+              <p className="text-[10px] text-slate-500 uppercase font-black">Available</p>
+              <p className="text-xl font-black text-white">{device.storageTotal - device.storageUsed} GB</p>
             </div>
           </div>
         </div>

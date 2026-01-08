@@ -13,11 +13,26 @@ export enum OSType {
   UNKNOWN = 'Unknown'
 }
 
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  duration: 'day' | 'week' | 'month' | 'year';
+  features: string[];
+}
+
+export interface UserSubscription {
+  planId: string;
+  status: 'active' | 'expired' | 'none';
+  expiryDate?: string;
+}
+
 export interface User {
   email: string;
   name: string;
   role?: 'Admin' | 'Operator';
   avatar?: string;
+  subscription?: UserSubscription;
 }
 
 export interface Operator extends User {
@@ -69,6 +84,7 @@ export interface DeviceProfile {
   deviceInfo: DeviceInfo;
   timestamp: string;
   category: 'Diagnostic' | 'Audit' | 'Forensic' | 'Custom';
+  cloudSynced?: boolean;
 }
 
 export interface LogEntry {
@@ -76,3 +92,13 @@ export interface LogEntry {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
 }
+
+export interface AppSettings {
+  autoSync: boolean;
+  theme: 'dark' | 'high-contrast';
+  logRetentionDays: number;
+  securityLevel: 'Standard' | 'Strict' | 'Paranoid';
+  enableBetaFeatures: boolean;
+}
+
+export type CloudSyncStatus = 'idle' | 'syncing' | 'success' | 'error';

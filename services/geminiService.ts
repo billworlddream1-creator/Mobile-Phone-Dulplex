@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { DeviceInfo } from "../types";
 
 export const getDeviceDiagnostic = async (device: DeviceInfo): Promise<string> => {
+  // Use named parameter for apiKey and direct process.env.API_KEY access
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
@@ -26,6 +27,7 @@ export const getDeviceDiagnostic = async (device: DeviceInfo): Promise<string> =
       },
     });
 
+    // Directly access .text property as per guidelines
     return response.text || "Diagnostic analysis unavailable.";
   } catch (error) {
     console.error("Gemini Diagnostic Error:", error);
@@ -34,6 +36,7 @@ export const getDeviceDiagnostic = async (device: DeviceInfo): Promise<string> =
 };
 
 export const generateDeviceBlueprint = async (device: DeviceInfo): Promise<string | null> => {
+  // Always use named parameter for initialization
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
@@ -54,9 +57,13 @@ export const generateDeviceBlueprint = async (device: DeviceInfo): Promise<strin
       },
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
+    // Iterate through parts to find inlineData as recommended for image generation response
+    const candidates = response.candidates;
+    if (candidates && candidates.length > 0) {
+      for (const part of candidates[0].content.parts) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
       }
     }
     return null;
@@ -77,6 +84,7 @@ export const findNearbySupport = async (lat: number, lng: number, brand: string)
       },
     });
 
+    // Extract text and grounding chunks for the frontend to render URLs
     const text = response.text || "No nearby support centers found.";
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     

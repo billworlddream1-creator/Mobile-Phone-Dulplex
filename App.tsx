@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Usb, Loader2, Info, Activity, Terminal, CheckCircle, AlertCircle, Radio, LogIn, Smartphone, Zap } from 'lucide-react';
+import { Usb, Loader2, Info, Activity, Terminal, CheckCircle, AlertCircle, Radio, LogIn, Smartphone, Zap, Menu, X, Cloud, ShieldAlert, CreditCard, Clock as ClockIcon, Users } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import DeviceDashboard from './components/DeviceDashboard';
 import ActionCenter from './components/ActionCenter';
@@ -9,7 +9,6 @@ import MaintenanceCenter from './components/MaintenanceCenter';
 import PerformanceAnalyzer from './components/PerformanceAnalyzer';
 import AdvancedAnalyzers from './components/AdvancedAnalyzers';
 import LocationTracker from './components/LocationTracker';
-import DeviceFinder from './components/DeviceFinder';
 import ProfileManager from './components/ProfileManager';
 import FileExplorer from './components/FileExplorer';
 import AppManager from './components/AppManager';
@@ -19,10 +18,13 @@ import CommsCenter from './components/CommsCenter';
 import IdentityManager from './components/IdentityManager';
 import AntivirusSuite from './components/AntivirusSuite';
 import UserManagement from './components/UserManagement';
+import SettingsPanel from './components/SettingsPanel';
+import SubscriptionCenter from './components/SubscriptionCenter';
 import Auth from './components/Auth';
-import { DeviceInfo, OSType, LogEntry, DeviceProfile, User, Operator, LoginLog } from './types';
+import { DeviceInfo, OSType, LogEntry, DeviceProfile, User, Operator, LoginLog, AppSettings, CloudSyncStatus, DeviceStatus, SubscriptionPlan } from './types';
 import { getDeviceDiagnostic } from './services/geminiService';
 import { logStream } from './services/logStreamService';
+import { cloudSyncService } from './services/cloudSyncService';
 
 const MOCK_DEVICE: DeviceInfo = {
   model: 'Galaxy S24 Ultra (SM-S928B)',
@@ -46,9 +48,19 @@ const MOCK_DEVICE: DeviceInfo = {
   bugs: []
 };
 
-const INITIAL_OPERATORS: Operator[] = [
-  { id: '1', name: 'System Administrator', email: 'admin@duplex.nexus', role: 'Admin', status: 'active', joinedDate: new Date().toISOString() }
+const INITIAL_PLANS: SubscriptionPlan[] = [
+  { id: 'daily', name: 'Tactical Daily', price: 2, duration: 'day', features: ['Full Diagnostics', 'Cloud Sync', 'AI Interrogation'] },
+  { id: 'weekly', name: 'Operational Weekly', price: 5, duration: 'week', features: ['Daily Features', 'Batch Operations', 'Priority Support'] },
+  { id: 'monthly', name: 'Elite Monthly', price: 17, duration: 'month', features: ['All Features', 'Forensic Deep Scan', 'White-label Reports'] },
+  { id: 'yearly', name: 'Enterprise Yearly', price: 65, duration: 'year', features: ['Elite Features', 'Unlimited Profiles', 'Advanced API Access'] },
 ];
+
+const INITIAL_OPERATORS: Operator[] = [
+  { id: '1', name: 'System Administrator', email: 'admin@gmt-duplex.io', role: 'Admin', status: 'active', joinedDate: new Date().toISOString(), subscription: { planId: 'yearly', status: 'active', expiryDate: '2026-01-01' } }
+];
+
+const RANDOM_NAMES = ["Agent_94", "Forensic_User", "Secure_Node_7", "Nexus_Operator", "Global_Linker", "Silent_Probe", "Data_Interceptor"];
+const RANDOM_PLANS = ["Tactical Daily", "Elite Monthly", "Enterprise Yearly", "Operational Weekly"];
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
@@ -61,14 +73,37 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : INITIAL_OPERATORS;
   });
 
+  const [plans, setPlans] = useState<SubscriptionPlan[]>(() => {
+    const saved = localStorage.getItem('duplex_plans');
+    return saved ? JSON.parse(saved) : INITIAL_PLANS;
+  });
+
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [recentSubscriber, setRecentSubscriber] = useState("");
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const subTimer = setInterval(() => {
+      const name = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+      const plan = RANDOM_PLANS[Math.floor(Math.random() * RANDOM_PLANS.length)];
+      setRecentSubscriber(`${name} just activated ${plan} license`);
+      setTimeout(() => setRecentSubscriber(""), 4500);
+    }, 7000);
+    return () => clearInterval(subTimer);
+  }, []);
+
   const [loginLogs, setLoginLogs] = useState<LoginLog[]>(() => {
     const saved = localStorage.getItem('duplex_login_logs');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<DeviceStatus>(DeviceStatus.DISCONNECTED);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [diagnostic, setDiagnostic] = useState<string>('');
@@ -78,6 +113,14 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('duplex_profiles');
     return saved ? JSON.parse(saved) : [];
   });
+
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('duplex_settings');
+    return saved ? JSON.parse(saved) : { autoSync: true, theme: 'dark', logRetentionDays: 30, securityLevel: 'Standard', enableBetaFeatures: false };
+  });
+
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('idle');
+  const [lastSynced, setLastSynced] = useState<string>(() => localStorage.getItem('duplex_last_synced') || '');
   
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,8 +129,16 @@ const App: React.FC = () => {
   }, [profiles]);
 
   useEffect(() => {
+    localStorage.setItem('duplex_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  useEffect(() => {
     localStorage.setItem('duplex_operators', JSON.stringify(operators));
   }, [operators]);
+
+  useEffect(() => {
+    localStorage.setItem('duplex_plans', JSON.stringify(plans));
+  }, [plans]);
 
   useEffect(() => {
     localStorage.setItem('duplex_login_logs', JSON.stringify(loginLogs));
@@ -101,28 +152,36 @@ const App: React.FC = () => {
     }
   }, [user]);
 
+  const triggerCloudSync = async () => {
+    if (cloudStatus === 'syncing') return;
+    setCloudStatus('syncing');
+    try {
+      const result = await cloudSyncService.sync(profiles, settings);
+      setCloudStatus('success');
+      setLastSynced(result.lastSynced);
+      localStorage.setItem('duplex_last_synced', result.lastSynced);
+      setTimeout(() => setCloudStatus('idle'), 3000);
+    } catch (e) {
+      setCloudStatus('error');
+      setTimeout(() => setCloudStatus('idle'), 5000);
+    }
+  };
+
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    const newLog: LogEntry = {
-      timestamp: new Date().toLocaleTimeString(),
-      message,
-      type
-    };
+    const newLog: LogEntry = { timestamp: new Date().toLocaleTimeString(), message, type };
     setLogs(prev => [newLog, ...prev].slice(0, 100));
   }, []);
 
   const handleLogin = (email: string, name: string, role: 'Admin' | 'Operator' = 'Operator') => {
-    const newUser: User = { email, name, role };
-    setUser(newUser);
-    
-    const newLog: LoginLog = {
-      id: crypto.randomUUID(),
-      userName: name,
-      userEmail: email,
-      timestamp: new Date().toLocaleString(),
-      ipAddress: `192.168.1.${Math.floor(Math.random() * 254) + 1}`
+    const existingOp = operators.find(o => o.email === email);
+    const newUser: User = { 
+      email, 
+      name, 
+      role, 
+      subscription: existingOp?.subscription || { planId: '', status: 'none' }
     };
-    setLoginLogs(prev => [newLog, ...prev].slice(0, 50));
-    
+    setUser(newUser);
+    setLoginLogs(prev => [{ id: crypto.randomUUID(), userName: name, userEmail: email, timestamp: new Date().toLocaleString(), ipAddress: `192.168.1.${Math.floor(Math.random() * 254) + 1}` }, ...prev].slice(0, 50));
     addLog(`Operator session started for ${name}`, 'success');
   };
 
@@ -131,312 +190,128 @@ const App: React.FC = () => {
     handleDisconnect();
   };
 
-  const addOperator = (name: string, email: string, role: 'Admin' | 'Operator') => {
-    const newOp: Operator = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      role,
-      status: 'active',
-      joinedDate: new Date().toISOString()
-    };
-    setOperators(prev => [...prev, newOp]);
-    addLog(`New operator provisioned: ${name}`, 'success');
-  };
-
-  const removeOperator = (id: string) => {
-    const op = operators.find(o => o.id === id);
-    if (op && op.email === user?.email) {
-      alert("Cannot revoke self-access.");
-      return;
-    }
-    setOperators(prev => prev.filter(o => o.id !== id));
-    addLog(`Operator access revoked for ${op?.name}`, 'warning');
-  };
-
   const handleConnect = async () => {
-    setIsConnecting(true);
-    addLog('Initiating USB duplex handshake...', 'info');
+    setConnectionStatus(DeviceStatus.CONNECTING);
+    addLog('Initiating GMT Duplex handshake...', 'info');
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsConnecting(false);
     setShowLoadingOverlay(true);
-    
     await new Promise(resolve => setTimeout(resolve, 3500));
-    
-    setIsConnected(true);
+    setConnectionStatus(DeviceStatus.CONNECTED);
     setShowLoadingOverlay(false);
     setDeviceInfo(MOCK_DEVICE);
-    addLog('Secure data bridge established', 'success');
-    
-    logStream.connect((entry) => {
-      setLogs(prev => [entry, ...prev].slice(0, 100));
-    });
+    addLog('GMT Secure data bridge established', 'success');
+    logStream.connect((entry) => setLogs(prev => [entry, ...prev].slice(0, 100)));
   };
 
   const handleDisconnect = () => {
     logStream.disconnect();
-    setIsConnected(false);
+    setConnectionStatus(DeviceStatus.DISCONNECTED);
     setDeviceInfo(null);
     setDiagnostic('');
     setActiveTab('dashboard');
-    addLog('Device disconnected from Duplex Link', 'warning');
+    addLog('GMT Device disconnected from Duplex Link', 'warning');
   };
 
-  const saveProfile = (name: string, category: DeviceProfile['category']) => {
-    if (!deviceInfo) return;
-    const newProfile: DeviceProfile = {
-      id: crypto.randomUUID(),
-      profileName: name,
-      category,
-      timestamp: new Date().toISOString(),
-      deviceInfo: { ...deviceInfo }
-    };
-    setProfiles(prev => [newProfile, ...prev]);
-    addLog(`Configuration saved: ${name}`, 'success');
-  };
+  const isConnected = connectionStatus === DeviceStatus.CONNECTED;
 
-  const loadProfile = (profile: DeviceProfile) => {
-    setDeviceInfo(profile.deviceInfo);
-    setIsConnected(true);
-    setActiveTab('dashboard');
-    addLog(`Recalled configuration: ${profile.profileName}`, 'info');
-  };
-
-  const deleteProfile = (id: string) => {
-    setProfiles(prev => prev.filter(p => p.id !== id));
-    addLog('Profile purged from Vault', 'warning');
-  };
-
-  const runDiagnostic = async () => {
-    if (!deviceInfo) return;
-    setIsAnalyzing(true);
-    addLog('Running AI Diagnostic Engine...', 'info');
-    try {
-      const result = await getDeviceDiagnostic(deviceInfo);
-      setDiagnostic(result);
-      addLog('Diagnostic analysis complete', 'success');
-    } catch (err) {
-      addLog('Diagnostic engine failure', 'error');
-      setDiagnostic("Error: Analysis core failed to respond.");
-    } finally {
-      setIsAnalyzing(false);
+  const renderContent = () => {
+    if (!isConnected && !['dashboard', 'profiles', 'settings', 'logs', 'user-mgmt', 'subscriptions'].includes(activeTab)) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center p-20 text-center animate-in fade-in">
+          <div className="w-24 h-24 bg-slate-900 border border-slate-800 rounded-[2.5rem] flex items-center justify-center mb-8 text-slate-700 shadow-2xl">
+            <Usb size={40} className={connectionStatus === DeviceStatus.CONNECTING ? "animate-spin text-indigo-500" : "animate-pulse"} />
+          </div>
+          <h2 className="text-3xl font-black text-white mb-4">No Duplex Target</h2>
+          <p className="text-slate-500 max-w-sm mb-10">GMT Interface requires an active Duplex Link. Attach hardware via USB to begin interrogation.</p>
+          <button onClick={handleConnect} disabled={connectionStatus === DeviceStatus.CONNECTING} className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 text-white px-10 py-4 rounded-2xl font-bold transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-3">
+            {connectionStatus === DeviceStatus.CONNECTING ? <Loader2 className="animate-spin" /> : <Zap size={20} />}
+            {connectionStatus === DeviceStatus.CONNECTING ? 'Establishing GMT Link...' : 'Attempt Manual Connect'}
+          </button>
+        </div>
+      );
+    }
+    switch (activeTab) {
+      case 'dashboard': return deviceInfo ? <DeviceDashboard device={deviceInfo} onAnalyze={() => { setIsAnalyzing(true); setActiveTab('diagnostics'); }} /> : <div className="h-full flex flex-col items-center justify-center p-20 text-center"><div className="w-24 h-24 bg-slate-900 border border-slate-800 rounded-[2rem] flex items-center justify-center mb-8 text-slate-700"><Usb size={40} className={connectionStatus === DeviceStatus.CONNECTING ? "animate-spin text-indigo-500" : ""} /></div><h2 className="text-2xl font-bold mb-4">Awaiting GMT Link</h2><button onClick={handleConnect} disabled={connectionStatus === DeviceStatus.CONNECTING} className="bg-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-indigo-500 transition-colors flex items-center gap-2">{connectionStatus === DeviceStatus.CONNECTING && <Loader2 size={18} className="animate-spin" />}{connectionStatus === DeviceStatus.CONNECTING ? 'Connecting...' : 'Connect Device'}</button></div>;
+      case 'subscriptions': return <SubscriptionCenter user={user!} plans={plans} onSubscribe={(id) => { const p = plans.find(x => x.id === id); if(p && user) { const expiry = new Date(); if(p.duration === 'day') expiry.setDate(expiry.getDate()+1); else if(p.duration === 'week') expiry.setDate(expiry.getDate()+7); else if(p.duration === 'month') expiry.setMonth(expiry.getMonth()+1); else expiry.setFullYear(expiry.getFullYear()+1); const sub = { planId: id, status: 'active' as const, expiryDate: expiry.toISOString() }; setUser({...user, subscription: sub}); setOperators(prev => prev.map(op => op.email === user.email ? {...op, subscription: sub} : op)); addLog(`License activated: ${p.name}`, 'success'); }}} />;
+      case 'diagnostics': return deviceInfo ? <div className="space-y-6"><div className="flex items-center justify-between mb-2"><h2 className="text-2xl font-bold flex items-center gap-2"><Zap className="text-indigo-400" /> GMT AI Diagnostic</h2><button onClick={async () => { setIsAnalyzing(true); setDiagnostic(await getDeviceDiagnostic(deviceInfo)); setIsAnalyzing(false); }} disabled={isAnalyzing} className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold uppercase text-indigo-400 hover:bg-slate-800">{isAnalyzing ? 'Re-analyzing...' : 'Run New Scan'}</button></div><div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 min-h-[400px] relative">{isAnalyzing && <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm rounded-3xl z-10"><Loader2 className="animate-spin text-indigo-500 mb-4" size={48} /><p className="text-slate-400 font-mono text-sm tracking-widest animate-pulse">INTERROGATING GMT KERNEL...</p></div>}<div className="prose prose-invert max-w-none text-slate-300 leading-relaxed">{diagnostic || "Awaiting scan trigger..."}</div></div></div> : null;
+      case 'actions': return <ActionCenter onAction={(name) => addLog(`Executed: ${name}`, 'warning')} />;
+      case 'blueprint': return deviceInfo ? <DeviceBlueprint device={deviceInfo} /> : null;
+      case 'maintenance': return deviceInfo ? <MaintenanceCenter device={deviceInfo} onUpdate={() => { setDeviceInfo(prev => prev ? {...prev, osVersion: '14.2 (GMT Optimized)', updateAvailable: false} : null); addLog('GMT Optimized Patch Applied', 'success'); }} /> : null;
+      case 'analyzer': return <PerformanceAnalyzer />;
+      case 'advanced-analyzers': return <AdvancedAnalyzers />;
+      case 'location': return <LocationTracker brand={deviceInfo?.brand} />;
+      case 'profiles': return <ProfileManager profiles={profiles} onLoad={(p) => { setDeviceInfo(p.deviceInfo); setConnectionStatus(DeviceStatus.CONNECTED); setActiveTab('dashboard'); addLog(`Restored GMT Profile: ${p.profileName}`, 'info'); }} onDelete={(id) => setProfiles(prev => prev.filter(p => p.id !== id))} onSave={(name, cat) => { if(deviceInfo) { setProfiles(prev => [{id: crypto.randomUUID(), profileName: name, category: cat, timestamp: new Date().toISOString(), deviceInfo: {...deviceInfo}, cloudSynced: false}, ...prev]); addLog(`GMT Snapshot saved: ${name}`, 'success'); } }} isConnected={isConnected} currentDevice={deviceInfo} />;
+      case 'files': return <FileExplorer />;
+      case 'apps': return <AppManager />;
+      case 'advanced': return <AdvancedAccess />;
+      case 'audit': return <SecurityAudit />;
+      case 'comms': return <CommsCenter />;
+      case 'identity': return <IdentityManager />;
+      case 'antivirus': return <AntivirusSuite />;
+      case 'user-mgmt': return <UserManagement operators={operators} loginLogs={loginLogs} plans={plans} onAddOperator={(n, e, r) => { setOperators(prev => [{id: crypto.randomUUID(), name: n, email: e, role: r, status: 'active', joinedDate: new Date().toISOString(), subscription: {planId: '', status: 'none'}}, ...prev]); addLog(`Provisioned: ${n}`, 'success'); }} onRemoveOperator={(id) => setOperators(prev => prev.filter(o => o.id !== id))} onUpdatePlans={(p) => setPlans(p)} />;
+      case 'settings': return <SettingsPanel settings={settings} updateSettings={(s) => setSettings(prev => ({...prev, ...s}))} syncStatus={cloudStatus} lastSynced={lastSynced} onManualSync={triggerCloudSync} />;
+      case 'logs': return <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 h-[75vh] flex flex-col shadow-2xl"><div className="flex items-center justify-between mb-6"><h3 className="text-xl font-bold flex items-center gap-2"><Terminal className="text-indigo-400" /> GMT System Log</h3><button onClick={() => setLogs([])} className="text-[10px] font-bold uppercase text-slate-500 hover:text-white">Purge Buffer</button></div><div className="flex-1 overflow-y-auto font-mono text-xs space-y-2 custom-scrollbar">{logs.map((log, i) => (<div key={i} className="flex gap-4 border-b border-white/5 pb-2"><span className="text-slate-600 shrink-0">[{log.timestamp}]</span><span className={`${log.type === 'error' ? 'text-rose-500' : log.type === 'warning' ? 'text-amber-500' : log.type === 'success' ? 'text-emerald-500' : 'text-indigo-300'}`}>{log.message}</span></div>))}<div ref={logEndRef} /></div></div>;
+      default: return null;
     }
   };
 
-  if (!user) {
-    return <Auth onLogin={handleLogin} validOperators={operators} />;
-  }
+  if (!user) return <Auth onLogin={handleLogin} validOperators={operators} />;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 overflow-hidden selection:bg-indigo-500/30">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isConnected={isConnected} 
-        isAdmin={user.role === 'Admin'} 
-      />
-
-      <main className="flex-1 overflow-y-auto custom-scrollbar">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between px-8 shrink-0">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-500 font-medium text-xs">Operator:</span>
-              <span className="text-white font-bold text-xs">{user.name}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-500 font-medium text-xs">Role:</span>
-              <span className="text-indigo-400 font-bold text-xs uppercase tracking-widest">{user.role}</span>
+    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} status={connectionStatus} isAdmin={user.role === 'Admin'} syncStatus={cloudStatus} />
+      <main className="flex-1 overflow-y-auto relative custom-scrollbar">
+        <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-8 py-4 flex items-center justify-between shadow-2xl">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="lg:hidden p-2 hover:bg-slate-800 rounded-lg"><Menu size={20} /></button>
+            <div className="flex flex-col">
+              <h2 className="text-lg font-bold text-white capitalize">{activeTab.replace('-', ' ')}</h2>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Operator: {user.name}</p>
+                <div className="w-1 h-1 rounded-full bg-slate-700" />
+                <div className={`flex items-center gap-2 text-[10px] font-black uppercase ${isConnected ? 'text-emerald-500' : 'text-slate-500'}`}>{connectionStatus}</div>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            {isConnected ? (
-              <button 
-                onClick={handleDisconnect}
-                className="bg-rose-500/10 text-rose-500 border border-rose-500/20 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-rose-500 hover:text-white transition-all flex items-center gap-2"
-              >
-                <Usb size={16} /> Terminate Duplex
-              </button>
-            ) : (
-              <button 
-                onClick={handleConnect}
-                disabled={isConnecting}
-                className="bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
-              >
-                {isConnecting ? <Loader2 size={16} className="animate-spin" /> : <Usb size={16} />}
-                {isConnecting ? 'Linking Interface...' : 'Duplex Scan'}
-              </button>
+          <div className="flex-1 px-8 hidden xl:block">
+            {recentSubscriber && (
+              <div className="flex items-center justify-center animate-feed">
+                <div className="bg-indigo-600/10 border border-indigo-500/20 px-4 py-1.5 rounded-full flex items-center gap-3">
+                  <Users size={12} className="text-indigo-400" />
+                  <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wide">{recentSubscriber}</span>
+                </div>
+              </div>
             )}
-            <button 
-              onClick={handleLogout}
-              className="p-2 text-slate-500 hover:text-rose-400 transition-colors"
-              title="Logout Operator"
-            >
-              <LogIn size={18} className="rotate-180" />
-            </button>
+          </div>
+
+          <div className="flex items-center gap-6">
+             <div className="flex flex-col items-end mr-4">
+               <p className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-2"><ClockIcon size={10} /> Live GMT</p>
+               <span className="text-sm font-mono font-black text-white tracking-tighter">{currentTime}</span>
+             </div>
+             <button onClick={handleLogout} className="p-2.5 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Terminate Session"><LogIn className="rotate-180" size={18} /></button>
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto">
-          {showLoadingOverlay && (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-500">
-              <div className="relative mb-12">
-                <div className="w-40 h-40 border-b-2 border-indigo-500 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Smartphone className="text-white animate-pulse" size={48} />
-                </div>
-              </div>
-              <div className="text-center space-y-4">
-                <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Initializing Duplex Link</h2>
-                <div className="flex items-center justify-center gap-4 text-indigo-400 font-mono text-xs tracking-[0.3em] uppercase">
-                   <Zap size={14} className="animate-pulse" /> Interrogating Kernels <Zap size={14} className="animate-pulse" />
-                </div>
-                <div className="w-64 h-1 bg-slate-800 rounded-full mx-auto overflow-hidden mt-8">
-                  <div className="h-full bg-indigo-500 animate-loading-bar shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
-                </div>
-                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-4">NAND Secure Token Exchange Active</p>
-              </div>
-            </div>
-          )}
+        <div className="p-8 pb-20">{renderContent()}</div>
 
-          {!isConnected && !isConnecting && !showLoadingOverlay && !['finder', 'profiles', 'user-mgmt'].includes(activeTab) && (
-            <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in duration-300">
-              <div className="w-24 h-24 bg-indigo-500/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20 shadow-2xl">
-                <Usb size={48} className="text-indigo-500 animate-pulse" />
-              </div>
-              <h2 className="text-4xl font-black mb-4 text-white tracking-tight">Duplex Interface Idle</h2>
-              <p className="text-slate-400 max-w-md mx-auto mb-10 leading-relaxed">
-                Mobile Phone Duplex is ready. Connect a device via high-speed USB-C or Lightning to initiate the professional suite.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl">
-                <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-indigo-500/30 transition-all group cursor-default">
-                  <div className="w-10 h-10 bg-indigo-500/10 text-indigo-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Activity size={20} />
-                  </div>
-                  <h4 className="font-bold mb-1 text-base">Real-time Analysis</h4>
-                  <p className="text-xs text-slate-500 leading-normal">Deep CPU & Memory interrogation across all mobile architectures.</p>
-                </div>
-                <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-emerald-500/30 transition-all group cursor-default">
-                  <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <CheckCircle size={20} />
-                  </div>
-                  <h4 className="font-bold mb-1 text-base">Verified Sanitization</h4>
-                  <p className="text-xs text-slate-500 leading-normal">Enterprise-grade data format and secure wiping protocols.</p>
-                </div>
-                <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl text-left hover:border-rose-500/30 transition-all group cursor-default">
-                  <div className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Info size={20} />
-                  </div>
-                  <h4 className="font-bold mb-1 text-base">Global Finder</h4>
-                  <p className="text-xs text-slate-500 leading-normal">Locate devices via duplex network routing (independent of link).</p>
-                </div>
-              </div>
-            </div>
-          )}
+        <footer className="fixed bottom-0 right-0 left-64 bg-slate-950/90 backdrop-blur-sm border-t border-slate-800 px-6 py-2.5 flex items-center justify-between text-[10px] z-40">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2"><div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} /><span className="font-bold uppercase text-slate-500">GMT INTERFACE {connectionStatus}</span></div>
+            {deviceInfo && <><div className="h-3 w-px bg-slate-800" /><span className="text-slate-400 font-medium">TARGET: {deviceInfo.brand} {deviceInfo.model}</span></>}
+          </div>
+          <div className="flex items-center gap-4 text-slate-600 font-bold tracking-widest uppercase"><span>© 2024 GMT PHONE DUPLEX</span><div className="h-3 w-px bg-slate-800" /><span>v2.5.0-GMT</span></div>
+        </footer>
 
-          {activeTab === 'finder' && <DeviceFinder />}
-          {activeTab === 'profiles' && (
-            <ProfileManager 
-              profiles={profiles} 
-              onLoad={loadProfile} 
-              onDelete={deleteProfile} 
-              onSave={saveProfile} 
-              isConnected={isConnected}
-              currentDevice={deviceInfo}
-            />
-          )}
-          {activeTab === 'user-mgmt' && (
-            <UserManagement 
-              operators={operators} 
-              loginLogs={loginLogs} 
-              onAddOperator={addOperator} 
-              onRemoveOperator={removeOperator} 
-            />
-          )}
-
-          {isConnected && deviceInfo && (
-            <div className="space-y-8 pb-20">
-              {activeTab === 'dashboard' && <DeviceDashboard device={deviceInfo} />}
-              {activeTab === 'comms' && <CommsCenter />}
-              {activeTab === 'files' && <FileExplorer />}
-              {activeTab === 'apps' && <AppManager />}
-              {activeTab === 'antivirus' && <AntivirusSuite />}
-              {activeTab === 'advanced' && <AdvancedAccess />}
-              {activeTab === 'identity' && <IdentityManager />}
-              {activeTab === 'audit' && <SecurityAudit />}
-              {activeTab === 'location' && <LocationTracker brand={deviceInfo.brand} />}
-              {activeTab === 'analyzer' && <PerformanceAnalyzer />}
-              {activeTab === 'advanced-analyzers' && <AdvancedAnalyzers />}
-              {activeTab === 'blueprint' && <DeviceBlueprint device={deviceInfo} />}
-              {activeTab === 'maintenance' && <MaintenanceCenter device={deviceInfo} onUpdate={() => {}} />}
-              
-              {activeTab === 'diagnostics' && (
-                <div className="space-y-6 animate-in fade-in">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                      <Activity className="text-indigo-500" /> AI Hardware Context
-                    </h2>
-                    <button 
-                      onClick={runDiagnostic}
-                      disabled={isAnalyzing}
-                      className="bg-indigo-600/10 text-indigo-400 border border-indigo-600/20 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-600 hover:text-white disabled:opacity-50 transition-all flex items-center gap-2"
-                    >
-                      {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
-                      Refresh Analysis
-                    </button>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 relative min-h-[400px]">
-                    {isAnalyzing ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <Loader2 className="animate-spin text-indigo-500 mb-4" size={40} />
-                        <p className="text-slate-400 font-mono text-xs tracking-widest uppercase">Querying Duplex Core...</p>
-                      </div>
-                    ) : (
-                      <div className="prose prose-invert max-w-none">
-                        <div className="whitespace-pre-wrap font-sans leading-relaxed text-slate-300">
-                          {diagnostic || "No analysis current cached."}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'logs' && (
-                <div className="space-y-4 animate-in fade-in">
-                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                      <Terminal className="text-emerald-500" /> Duplex System Logs
-                    </h2>
-                  </div>
-
-                  <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                    <div className="p-6 font-mono text-sm h-[60vh] overflow-y-auto space-y-2 bg-black/40 flex flex-col-reverse custom-scrollbar">
-                      <div ref={logEndRef} />
-                      {logs.length === 0 ? (
-                        <div className="flex items-center justify-center h-full opacity-30 italic text-slate-500">
-                          Waiting for initial duplex packets...
-                        </div>
-                      ) : (
-                        logs.map((log, i) => (
-                          <div key={i} className={`flex gap-4 p-1.5 rounded-lg transition-all animate-in slide-in-from-left-2 duration-300 ${
-                            log.type === 'success' ? 'text-emerald-400' : 
-                            log.type === 'error' ? 'text-rose-400 font-bold' : 
-                            log.type === 'warning' ? 'text-amber-400' : 'text-indigo-300'
-                          }`}>
-                            <span className="text-slate-600 shrink-0 text-xs">[{log.timestamp}]</span>
-                            <span className="flex-1"># {log.message}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {showLoadingOverlay && (
+          <div className="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center animate-in fade-in duration-500">
+            <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center shadow-[0_0_50px_rgba(79,70,229,0.3)] mb-8"><Usb className="text-white animate-bounce" size={40} /></div>
+            <h2 className="text-2xl font-black text-white mb-2">Finalizing GMT Handshake</h2>
+            <p className="text-slate-500 font-mono text-xs tracking-[0.3em] animate-pulse uppercase">Syncing memory map registers...</p>
+            <div className="mt-12 w-48 h-1 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 animate-loading-bar" /></div>
+          </div>
+        )}
       </main>
     </div>
   );

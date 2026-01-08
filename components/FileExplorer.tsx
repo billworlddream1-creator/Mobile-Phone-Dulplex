@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { Folder, File, ChevronRight, Search, HardDrive, Shield, MoreVertical, Download, Trash2, FileText, Image, Video } from 'lucide-react';
+import { Folder, File, ChevronRight, Search, HardDrive, Shield, MoreVertical, Download, Trash2, FileText, Image, Video, Share2, Loader2 } from 'lucide-react';
 
 const FileExplorer: React.FC = () => {
   const [currentPath, setCurrentPath] = useState(['/', 'storage', 'emulated', '0']);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const files = [
     { name: 'DCIM', type: 'folder', size: '2.4 GB', date: '2024-05-20' },
@@ -16,6 +17,13 @@ const FileExplorer: React.FC = () => {
     { name: 'vacation_photo.jpg', type: 'file', size: '4.2 MB', date: '2024-04-12', ext: 'jpg' },
     { name: 'contract_v2.pdf', type: 'file', size: '1.1 MB', date: '2024-05-01', ext: 'pdf' },
   ];
+
+  const handleExportManifest = async () => {
+    setIsExporting(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsExporting(false);
+    alert('Filesystem manifest for ' + currentPath.join('/') + ' exported to PC successfully.');
+  };
 
   const getFileIcon = (file: any) => {
     if (file.type === 'folder') return <Folder size={20} className="text-indigo-400 fill-indigo-400/10" />;
@@ -29,12 +37,20 @@ const FileExplorer: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Filesystem Interrogator</h2>
           <p className="text-slate-400 text-sm">Navigating internal storage via high-speed duplex bridge</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleExportManifest}
+            disabled={isExporting}
+            className="bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/5"
+          >
+            {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+            {isExporting ? 'Mapping...' : 'Export Directory Manifest'}
+          </button>
           <div className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-4">
             <HardDrive size={18} className="text-indigo-400" />
             <div className="flex flex-col">
