@@ -64,8 +64,9 @@ const RANDOM_PLANS = ["Tactical Daily", "Elite Monthly", "Enterprise Yearly", "O
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('duplex_user');
-    return saved ? JSON.parse(saved) : null;
+    const savedLocal = localStorage.getItem('duplex_user');
+    const savedSession = sessionStorage.getItem('duplex_user');
+    return savedLocal ? JSON.parse(savedLocal) : (savedSession ? JSON.parse(savedSession) : null);
   });
 
   const [operators, setOperators] = useState<Operator[]>(() => {
@@ -144,35 +145,12 @@ const App: React.FC = () => {
     localStorage.setItem('duplex_login_logs', JSON.stringify(loginLogs));
   }, [loginLogs]);
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('duplex_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('duplex_user');
-    }
-  }, [user]);
-
-  const triggerCloudSync = async () => {
-    if (cloudStatus === 'syncing') return;
-    setCloudStatus('syncing');
-    try {
-      const result = await cloudSyncService.sync(profiles, settings);
-      setCloudStatus('success');
-      setLastSynced(result.lastSynced);
-      localStorage.setItem('duplex_last_synced', result.lastSynced);
-      setTimeout(() => setCloudStatus('idle'), 3000);
-    } catch (e) {
-      setCloudStatus('error');
-      setTimeout(() => setCloudStatus('idle'), 5000);
-    }
-  };
-
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const newLog: LogEntry = { timestamp: new Date().toLocaleTimeString(), message, type };
     setLogs(prev => [newLog, ...prev].slice(0, 100));
   }, []);
 
-  const handleLogin = (email: string, name: string, role: 'Admin' | 'Operator' = 'Operator') => {
+  const handleLogin = (email: string, name: string, role: 'Admin' | 'Operator', rememberMe: boolean) => {
     const existingOp = operators.find(o => o.email === email);
     const newUser: User = { 
       email, 
@@ -180,13 +158,22 @@ const App: React.FC = () => {
       role, 
       subscription: existingOp?.subscription || { planId: '', status: 'none' }
     };
+    
     setUser(newUser);
+    if (rememberMe) {
+      localStorage.setItem('duplex_user', JSON.stringify(newUser));
+    } else {
+      sessionStorage.setItem('duplex_user', JSON.stringify(newUser));
+    }
+    
     setLoginLogs(prev => [{ id: crypto.randomUUID(), userName: name, userEmail: email, timestamp: new Date().toLocaleString(), ipAddress: `192.168.1.${Math.floor(Math.random() * 254) + 1}` }, ...prev].slice(0, 50));
-    addLog(`Operator session started for ${name}`, 'success');
+    addLog(`GMT Operator session started for ${name}`, 'success');
   };
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('duplex_user');
+    sessionStorage.removeItem('duplex_user');
     handleDisconnect();
   };
 
@@ -212,6 +199,28 @@ const App: React.FC = () => {
     addLog('GMT Device disconnected from Duplex Link', 'warning');
   };
 
+  const triggerCloudSync = useCallback(async () => {
+    setCloudStatus('syncing');
+    addLog('Initiating cloud synchronization...', 'info');
+    try {
+      const result = await cloudSyncService.sync(profiles, settings);
+      if (result.success) {
+        setCloudStatus('success');
+        setLastSynced(result.lastSynced);
+        localStorage.setItem('duplex_last_synced', result.lastSynced);
+        addLog('Cloud synchronization complete', 'success');
+        setProfiles(prev => prev.map(p => ({ ...p, cloudSynced: true })));
+      } else {
+        setCloudStatus('error');
+        addLog('Cloud synchronization failed', 'error');
+      }
+    } catch (error) {
+      setCloudStatus('error');
+      addLog('Cloud synchronization error', 'error');
+      console.error(error);
+    }
+  }, [profiles, settings, addLog]);
+
   const isConnected = connectionStatus === DeviceStatus.CONNECTED;
 
   const renderContent = () => {
@@ -231,7 +240,27 @@ const App: React.FC = () => {
       );
     }
     switch (activeTab) {
-      case 'dashboard': return deviceInfo ? <DeviceDashboard device={deviceInfo} onAnalyze={() => { setIsAnalyzing(true); setActiveTab('diagnostics'); }} /> : <div className="h-full flex flex-col items-center justify-center p-20 text-center"><div className="w-24 h-24 bg-slate-900 border border-slate-800 rounded-[2rem] flex items-center justify-center mb-8 text-slate-700"><Usb size={40} className={connectionStatus === DeviceStatus.CONNECTING ? "animate-spin text-indigo-500" : ""} /></div><h2 className="text-2xl font-bold mb-4">Awaiting GMT Link</h2><button onClick={handleConnect} disabled={connectionStatus === DeviceStatus.CONNECTING} className="bg-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-indigo-500 transition-colors flex items-center gap-2">{connectionStatus === DeviceStatus.CONNECTING && <Loader2 size={18} className="animate-spin" />}{connectionStatus === DeviceStatus.CONNECTING ? 'Connecting...' : 'Connect Device'}</button></div>;
+      case 'dashboard': return deviceInfo ? (
+        <DeviceDashboard 
+          device={deviceInfo} 
+          onAnalyze={() => { setIsAnalyzing(true); setActiveTab('diagnostics'); }} 
+          onQuickAction={(action) => {
+            setActiveTab('actions');
+            addLog(`Dashboard redirect: Initiating ${action} via Action Center`, 'warning');
+          }}
+        />
+      ) : (
+        <div className="h-full flex flex-col items-center justify-center p-20 text-center">
+          <div className="w-24 h-24 bg-slate-900 border border-slate-800 rounded-[2rem] flex items-center justify-center mb-8 text-slate-700">
+            <Usb size={40} className={connectionStatus === DeviceStatus.CONNECTING ? "animate-spin text-indigo-500" : ""} />
+          </div>
+          <h2 className="text-2xl font-bold mb-4">Awaiting GMT Link</h2>
+          <button onClick={handleConnect} disabled={connectionStatus === DeviceStatus.CONNECTING} className="bg-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-indigo-500 transition-colors flex items-center gap-2">
+            {connectionStatus === DeviceStatus.CONNECTING && <Loader2 size={18} className="animate-spin" />}
+            {connectionStatus === DeviceStatus.CONNECTING ? 'Connecting...' : 'Connect Device'}
+          </button>
+        </div>
+      );
       case 'subscriptions': return <SubscriptionCenter user={user!} plans={plans} onSubscribe={(id) => { const p = plans.find(x => x.id === id); if(p && user) { const expiry = new Date(); if(p.duration === 'day') expiry.setDate(expiry.getDate()+1); else if(p.duration === 'week') expiry.setDate(expiry.getDate()+7); else if(p.duration === 'month') expiry.setMonth(expiry.getMonth()+1); else expiry.setFullYear(expiry.getFullYear()+1); const sub = { planId: id, status: 'active' as const, expiryDate: expiry.toISOString() }; setUser({...user, subscription: sub}); setOperators(prev => prev.map(op => op.email === user.email ? {...op, subscription: sub} : op)); addLog(`License activated: ${p.name}`, 'success'); }}} />;
       case 'diagnostics': return deviceInfo ? <div className="space-y-6"><div className="flex items-center justify-between mb-2"><h2 className="text-2xl font-bold flex items-center gap-2"><Zap className="text-indigo-400" /> GMT AI Diagnostic</h2><button onClick={async () => { setIsAnalyzing(true); setDiagnostic(await getDeviceDiagnostic(deviceInfo)); setIsAnalyzing(false); }} disabled={isAnalyzing} className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold uppercase text-indigo-400 hover:bg-slate-800">{isAnalyzing ? 'Re-analyzing...' : 'Run New Scan'}</button></div><div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 min-h-[400px] relative">{isAnalyzing && <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm rounded-3xl z-10"><Loader2 className="animate-spin text-indigo-500 mb-4" size={48} /><p className="text-slate-400 font-mono text-sm tracking-widest animate-pulse">INTERROGATING GMT KERNEL...</p></div>}<div className="prose prose-invert max-w-none text-slate-300 leading-relaxed">{diagnostic || "Awaiting scan trigger..."}</div></div></div> : null;
       case 'actions': return <ActionCenter onAction={(name) => addLog(`Executed: ${name}`, 'warning')} />;
@@ -265,7 +294,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="lg:hidden p-2 hover:bg-slate-800 rounded-lg"><Menu size={20} /></button>
             <div className="flex flex-col">
-              <h2 className="text-lg font-bold text-white capitalize">{activeTab.replace('-', ' ')}</h2>
+              <h2 className="text-lg font-bold text-white capitalize tracking-tighter">{activeTab.replace('-', ' ')}</h2>
               <div className="flex items-center gap-2">
                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Operator: {user.name}</p>
                 <div className="w-1 h-1 rounded-full bg-slate-700" />

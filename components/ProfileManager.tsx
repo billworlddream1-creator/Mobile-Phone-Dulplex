@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Filter,
-  Cloud
+  Cloud,
+  ChevronDown
 } from 'lucide-react';
 
 interface ProfileManagerProps {
@@ -24,6 +25,8 @@ interface ProfileManagerProps {
   isConnected: boolean;
   currentDevice: DeviceInfo | null;
 }
+
+const CATEGORIES: (DeviceProfile['category'] | 'All')[] = ['All', 'Diagnostic', 'Audit', 'Forensic', 'Custom'];
 
 const ProfileManager: React.FC<ProfileManagerProps> = ({ 
   profiles, 
@@ -37,6 +40,7 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileCategory, setNewProfileCategory] = useState<DeviceProfile['category']>('Diagnostic');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<DeviceProfile['category'] | 'All'>('All');
 
   const handleSave = () => {
     if (newProfileName.trim()) {
@@ -46,10 +50,12 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
     }
   };
 
-  const filteredProfiles = profiles.filter(p => 
-    p.profileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.deviceInfo.model.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProfiles = profiles.filter(p => {
+    const matchesSearch = p.profileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         p.deviceInfo.model.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeFilter === 'All' || p.category === activeFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -70,20 +76,40 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
         </button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search vault by name or model..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-indigo-500 transition-all font-medium text-slate-200"
-        />
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search vault by name or model..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-indigo-500 transition-all font-medium text-slate-200"
+          />
+        </div>
+
+        {/* Category Filters */}
+        <div className="bg-slate-900 border border-slate-800 p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveFilter(cat)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                activeFilter === cat 
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProfiles.map((profile) => (
-          <div key={profile.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+          <div key={profile.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 hover:border-indigo-500/30 transition-all group relative overflow-hidden flex flex-col h-full">
             <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
               {profile.cloudSynced && (
                 <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg" title="Cloud Synced">
@@ -112,7 +138,7 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-6 flex-1">
               <div className="flex items-center justify-between text-sm text-slate-400">
                 <div className="flex items-center gap-2">
                   <Smartphone size={14} className="text-slate-600" />
@@ -128,7 +154,7 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
 
             <button 
               onClick={() => onLoad(profile)}
-              className="w-full py-3 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 mt-auto"
             >
               <Download size={16} /> Restore Configuration
             </button>
@@ -138,10 +164,10 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({
         {filteredProfiles.length === 0 && (
           <div className="col-span-full py-20 text-center bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-3xl">
             <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 opacity-30">
-              <Bookmark size={32} />
+              <Filter size={32} />
             </div>
-            <h3 className="text-slate-500 font-bold">No saved profiles match your query.</h3>
-            <p className="text-slate-600 text-sm">Save your first diagnostic configuration to see it here.</p>
+            <h3 className="text-slate-500 font-bold">No snapshots found for this category.</h3>
+            <p className="text-slate-600 text-sm">Refine your search parameters or adjust the classification filter.</p>
           </div>
         )}
       </div>
