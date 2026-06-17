@@ -24,11 +24,13 @@ import {
   Cloud,
   Loader2,
   Usb,
-  CreditCard
+  CreditCard,
+  User as UserIcon
 } from 'lucide-react';
-import { DeviceStatus } from '../types';
+import { DeviceStatus, User } from '../types';
 
 interface SidebarProps {
+  user: User;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   status: DeviceStatus;
@@ -36,7 +38,7 @@ interface SidebarProps {
   syncStatus: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, status, isAdmin, syncStatus }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, activeTab, setActiveTab, status, isAdmin, syncStatus }) => {
   const isConnected = status === DeviceStatus.CONNECTED;
   
   const menuItems = [
@@ -72,6 +74,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, status, isAd
         <div>
           <h1 className="font-black text-lg tracking-tight leading-none text-white">GMT PHONE</h1>
           <h1 className="font-bold text-lg tracking-tight leading-none text-indigo-400">DUPLEX</h1>
+        </div>
+      </div>
+
+      <div className="px-6 mb-4">
+        <div className="bg-slate-950/50 rounded-2xl p-3 border border-white/5 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+            {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserIcon size={18} className="text-slate-500" />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-white truncate">{user.name}</p>
+            <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest truncate">{user.role}</p>
+          </div>
         </div>
       </div>
 

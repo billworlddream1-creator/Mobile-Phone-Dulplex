@@ -21,10 +21,19 @@ export interface SubscriptionPlan {
   features: string[];
 }
 
+export interface Transaction {
+  id: string;
+  planId: string;
+  amount: number;
+  timestamp: string;
+  status: 'completed' | 'pending' | 'failed';
+}
+
 export interface UserSubscription {
   planId: string;
   status: 'active' | 'expired' | 'none';
   expiryDate?: string;
+  autoRenew?: boolean;
 }
 
 export interface User {

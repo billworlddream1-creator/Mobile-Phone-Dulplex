@@ -21,7 +21,7 @@ import UserManagement from './components/UserManagement';
 import SettingsPanel from './components/SettingsPanel';
 import SubscriptionCenter from './components/SubscriptionCenter';
 import Auth from './components/Auth';
-import { DeviceInfo, OSType, LogEntry, DeviceProfile, User, Operator, LoginLog, AppSettings, CloudSyncStatus, DeviceStatus, SubscriptionPlan } from './types';
+import { DeviceInfo, OSType, LogEntry, DeviceProfile, User, Operator, LoginLog, AppSettings, CloudSyncStatus, DeviceStatus, SubscriptionPlan, Transaction } from './types';
 import { getDeviceDiagnostic } from './services/geminiService';
 import { logStream } from './services/logStreamService';
 import { cloudSyncService } from './services/cloudSyncService';
@@ -67,6 +67,11 @@ const App: React.FC = () => {
     const savedLocal = localStorage.getItem('duplex_user');
     const savedSession = sessionStorage.getItem('duplex_user');
     return savedLocal ? JSON.parse(savedLocal) : (savedSession ? JSON.parse(savedSession) : null);
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('duplex_transactions');
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [operators, setOperators] = useState<Operator[]>(() => {
@@ -145,6 +150,10 @@ const App: React.FC = () => {
     localStorage.setItem('duplex_login_logs', JSON.stringify(loginLogs));
   }, [loginLogs]);
 
+  useEffect(() => {
+    localStorage.setItem('duplex_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const newLog: LogEntry = { timestamp: new Date().toLocaleTimeString(), message, type };
     setLogs(prev => [newLog, ...prev].slice(0, 100));
@@ -156,6 +165,7 @@ const App: React.FC = () => {
       email, 
       name, 
       role, 
+      avatar: existingOp?.avatar || undefined,
       subscription: existingOp?.subscription || { planId: '', status: 'none' }
     };
     
@@ -168,6 +178,15 @@ const App: React.FC = () => {
     
     setLoginLogs(prev => [{ id: crypto.randomUUID(), userName: name, userEmail: email, timestamp: new Date().toLocaleString(), ipAddress: `192.168.1.${Math.floor(Math.random() * 254) + 1}` }, ...prev].slice(0, 50));
     addLog(`GMT Operator session started for ${name}`, 'success');
+  };
+
+  const handleUpdateProfile = (updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem('duplex_user', JSON.stringify(updatedUser));
+    setOperators(prev => prev.map(op => op.email === user.email ? { ...op, ...updates } : op));
+    addLog('Operator profile credentials updated', 'success');
   };
 
   const handleLogout = () => {
@@ -261,7 +280,37 @@ const App: React.FC = () => {
           </button>
         </div>
       );
-      case 'subscriptions': return <SubscriptionCenter user={user!} plans={plans} onSubscribe={(id) => { const p = plans.find(x => x.id === id); if(p && user) { const expiry = new Date(); if(p.duration === 'day') expiry.setDate(expiry.getDate()+1); else if(p.duration === 'week') expiry.setDate(expiry.getDate()+7); else if(p.duration === 'month') expiry.setMonth(expiry.getMonth()+1); else expiry.setFullYear(expiry.getFullYear()+1); const sub = { planId: id, status: 'active' as const, expiryDate: expiry.toISOString() }; setUser({...user, subscription: sub}); setOperators(prev => prev.map(op => op.email === user.email ? {...op, subscription: sub} : op)); addLog(`License activated: ${p.name}`, 'success'); }}} />;
+      case 'subscriptions': return (
+        <SubscriptionCenter 
+          user={user!} 
+          plans={plans} 
+          transactions={transactions}
+          onSubscribe={(id) => { 
+            const p = plans.find(x => x.id === id); 
+            if(p && user) { 
+              const expiry = new Date(); 
+              if(p.duration === 'day') expiry.setDate(expiry.getDate()+1); 
+              else if(p.duration === 'week') expiry.setDate(expiry.getDate()+7); 
+              else if(p.duration === 'month') expiry.setMonth(expiry.getMonth()+1); 
+              else expiry.setFullYear(expiry.getFullYear()+1); 
+              
+              const sub = { planId: id, status: 'active' as const, expiryDate: expiry.toISOString(), autoRenew: true }; 
+              setUser({...user, subscription: sub}); 
+              setOperators(prev => prev.map(op => op.email === user.email ? {...op, subscription: sub} : op));
+              
+              const newTx: Transaction = {
+                id: crypto.randomUUID(),
+                planId: id,
+                amount: p.price,
+                timestamp: new Date().toISOString(),
+                status: 'completed'
+              };
+              setTransactions(prev => [newTx, ...prev]);
+              addLog(`License activated: ${p.name}`, 'success'); 
+            }
+          }} 
+        />
+      );
       case 'diagnostics': return deviceInfo ? <div className="space-y-6"><div className="flex items-center justify-between mb-2"><h2 className="text-2xl font-bold flex items-center gap-2"><Zap className="text-indigo-400" /> GMT AI Diagnostic</h2><button onClick={async () => { setIsAnalyzing(true); setDiagnostic(await getDeviceDiagnostic(deviceInfo)); setIsAnalyzing(false); }} disabled={isAnalyzing} className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold uppercase text-indigo-400 hover:bg-slate-800">{isAnalyzing ? 'Re-analyzing...' : 'Run New Scan'}</button></div><div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 min-h-[400px] relative">{isAnalyzing && <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/50 backdrop-blur-sm rounded-3xl z-10"><Loader2 className="animate-spin text-indigo-500 mb-4" size={48} /><p className="text-slate-400 font-mono text-sm tracking-widest animate-pulse">INTERROGATING GMT KERNEL...</p></div>}<div className="prose prose-invert max-w-none text-slate-300 leading-relaxed">{diagnostic || "Awaiting scan trigger..."}</div></div></div> : null;
       case 'actions': return <ActionCenter onAction={(name) => addLog(`Executed: ${name}`, 'warning')} />;
       case 'blueprint': return deviceInfo ? <DeviceBlueprint device={deviceInfo} /> : null;
@@ -278,7 +327,7 @@ const App: React.FC = () => {
       case 'identity': return <IdentityManager />;
       case 'antivirus': return <AntivirusSuite />;
       case 'user-mgmt': return <UserManagement operators={operators} loginLogs={loginLogs} plans={plans} onAddOperator={(n, e, r) => { setOperators(prev => [{id: crypto.randomUUID(), name: n, email: e, role: r, status: 'active', joinedDate: new Date().toISOString(), subscription: {planId: '', status: 'none'}}, ...prev]); addLog(`Provisioned: ${n}`, 'success'); }} onRemoveOperator={(id) => setOperators(prev => prev.filter(o => o.id !== id))} onUpdatePlans={(p) => setPlans(p)} />;
-      case 'settings': return <SettingsPanel settings={settings} updateSettings={(s) => setSettings(prev => ({...prev, ...s}))} syncStatus={cloudStatus} lastSynced={lastSynced} onManualSync={triggerCloudSync} />;
+      case 'settings': return <SettingsPanel user={user!} onUpdateProfile={handleUpdateProfile} settings={settings} updateSettings={(s) => setSettings(prev => ({...prev, ...s}))} syncStatus={cloudStatus} lastSynced={lastSynced} onManualSync={triggerCloudSync} />;
       case 'logs': return <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 h-[75vh] flex flex-col shadow-2xl"><div className="flex items-center justify-between mb-6"><h3 className="text-xl font-bold flex items-center gap-2"><Terminal className="text-indigo-400" /> GMT System Log</h3><button onClick={() => setLogs([])} className="text-[10px] font-bold uppercase text-slate-500 hover:text-white">Purge Buffer</button></div><div className="flex-1 overflow-y-auto font-mono text-xs space-y-2 custom-scrollbar">{logs.map((log, i) => (<div key={i} className="flex gap-4 border-b border-white/5 pb-2"><span className="text-slate-600 shrink-0">[{log.timestamp}]</span><span className={`${log.type === 'error' ? 'text-rose-500' : log.type === 'warning' ? 'text-amber-500' : log.type === 'success' ? 'text-emerald-500' : 'text-indigo-300'}`}>{log.message}</span></div>))}<div ref={logEndRef} /></div></div>;
       default: return null;
     }
@@ -288,7 +337,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} status={connectionStatus} isAdmin={user.role === 'Admin'} syncStatus={cloudStatus} />
+      <Sidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} status={connectionStatus} isAdmin={user.role === 'Admin'} syncStatus={cloudStatus} />
       <main className="flex-1 overflow-y-auto relative custom-scrollbar">
         <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-8 py-4 flex items-center justify-between shadow-2xl">
           <div className="flex items-center gap-4">

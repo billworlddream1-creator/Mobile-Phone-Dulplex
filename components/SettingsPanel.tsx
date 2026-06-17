@@ -1,9 +1,11 @@
 
-import React from 'react';
-import { Settings, Cloud, Shield, Bell, Database, Trash2, Save, RefreshCw } from 'lucide-react';
-import { AppSettings, CloudSyncStatus } from '../types';
+import React, { useState, useRef } from 'react';
+import { Settings, Cloud, Shield, Bell, Database, Trash2, Save, RefreshCw, User as UserIcon, Camera, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { AppSettings, CloudSyncStatus, User } from '../types';
 
 interface SettingsPanelProps {
+  user: User;
+  onUpdateProfile: (updates: Partial<User>) => void;
   settings: AppSettings;
   updateSettings: (settings: Partial<AppSettings>) => void;
   syncStatus: CloudSyncStatus;
@@ -12,12 +14,34 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
+  user,
+  onUpdateProfile,
   settings, 
   updateSettings, 
   syncStatus, 
   lastSynced, 
   onManualSync 
 }) => {
+  const [profileName, setProfileName] = useState(user.name);
+  const [profileEmail, setProfileEmail] = useState(user.email);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onUpdateProfile({ avatar: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdateProfile({ name: profileName, email: profileEmail });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto pb-20">
       <div className="flex items-center justify-between mb-8">
@@ -32,6 +56,85 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Operator Profile Config */}
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group md:col-span-2">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-emerald-600/10 text-emerald-400 rounded-2xl flex items-center justify-center">
+              <UserIcon size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-lg">Operator Credentials</h3>
+              <p className="text-xs text-slate-500">Manage your forensic identity and authentication tokens</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-10">
+            <div className="flex flex-col items-center gap-4 shrink-0">
+              <div className="relative group/avatar">
+                <div className="w-32 h-32 rounded-[2.5rem] bg-slate-950 border-2 border-slate-800 flex items-center justify-center overflow-hidden shadow-2xl">
+                  {user.avatar ? (
+                    <img src={user.avatar} className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon size={48} className="text-slate-800" />
+                  )}
+                </div>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-2 -right-2 p-3 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all opacity-0 group-hover/avatar:opacity-100"
+                >
+                  <Camera size={18} />
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange} 
+                />
+              </div>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Forensic Avatar</p>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="flex-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest pl-1">Operational Name</label>
+                  <div className="relative">
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+                    <input 
+                      type="text" 
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-indigo-500 text-slate-200"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 uppercase font-black tracking-widest pl-1">Secure Email Endpoint</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+                    <input 
+                      type="email" 
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-indigo-500 text-slate-200"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end">
+                <button 
+                  type="submit"
+                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-2"
+                >
+                  <ShieldCheck size={18} /> Update Interface Identity
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
         {/* Cloud Config */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
           <div className="flex items-center gap-4 mb-8">
@@ -107,7 +210,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {/* Data Management */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl md:col-span-2">
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-indigo-600/10 text-indigo-400 rounded-2xl flex items-center justify-center">
               <Database size={24} />
             </div>
             <div>

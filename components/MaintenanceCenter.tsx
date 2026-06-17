@@ -185,7 +185,7 @@ const MaintenanceCenter: React.FC<MaintenanceCenterProps> = ({ device, onUpdate 
         <div>
           <h4 className="font-black text-amber-500 text-sm uppercase tracking-widest">Operations Warning</h4>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-            Executing firmware modifications requires sustained voltage above 3.8V. Duplex Link maintains a slow-trickle charge, but ensuring the device battery is >50% before deployment is recommended to prevent NAND corruption.
+            Executing firmware modifications requires sustained voltage above 3.8V. Duplex Link maintains a slow-trickle charge, but ensuring the device battery is &gt;50% before deployment is recommended to prevent NAND corruption.
           </p>
         </div>
       </div>
