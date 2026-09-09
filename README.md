@@ -4,14 +4,30 @@
 
 # Mobile Phone Duplex AI Studio App
 
-This project contains everything you need to run and build your AI Studio app across multiple platforms.
+This project contains everything you need to run and build your AI Studio app across multiple platforms including **macOS, iOS, Android, Windows, and Linux**.
 
 View your app in AI Studio: https://ai.studio/apps/2d298dcf-bffc-46fa-9047-bd61746802d1
 
+---
+
+## Supported Platforms
+
+- **Android**: Automated APK generation (`app-debug.apk`) via Gradle & Capacitor.
+- **iOS**: Automated iOS App project compilation via Xcode (`xcodebuild`) & Capacitor.
+- **Windows**: Production web bundle packaged for Windows runners (`windows-latest`).
+- **macOS**: Production web bundle packaged for macOS runners (`macos-latest`).
+- **Linux**: Production web bundle packaged for Linux runners (`ubuntu-latest`).
+
+---
+
 ## Prerequisites
 
-- **Node.js**: v18 or later
+- **Node.js**: v18 or later (v20 recommended)
 - **npm**: v9 or later
+- **Java JDK**: 17 or higher (for local Android builds)
+- **Xcode**: 15+ and macOS (for local iOS builds)
+
+---
 
 ## Local Development Setup
 
@@ -31,26 +47,64 @@ View your app in AI Studio: https://ai.studio/apps/2d298dcf-bffc-46fa-9047-bd617
    npm run dev
    ```
 
-## Build Instructions
+---
 
-To build the project for production:
+## Building Locally
 
+### Web Application
+To compile the web assets into the `dist/` directory:
 ```bash
 npm run build
 ```
 
-This compiles the project assets into the `dist/` directory.
-
 To preview the built app locally:
-
 ```bash
 npm run preview
 ```
 
-## Cross-Platform GitHub Actions CI/CD Workflow
+### Android APK Build
+To generate an Android APK locally using Capacitor:
+```bash
+npm install @capacitor/cli @capacitor/core @capacitor/android
+npx cap init "Mobile Phone Duplex" "com.example.mobilephoneduplex" --web-dir dist
+npx cap add android
+cd android
+./gradlew assembleDebug
+```
+The resulting `.apk` file will be located at:
+`android/app/build/outputs/apk/debug/app-debug.apk`
 
-This repository includes a GitHub Actions CI workflow configured in `.github/workflows/build.yml`.
+### iOS Project Build
+To set up and build the iOS project locally (on macOS with Xcode):
+```bash
+npm install @capacitor/cli @capacitor/core @capacitor/ios
+npx cap init "Mobile Phone Duplex" "com.example.mobilephoneduplex" --web-dir dist
+npx cap add ios
+xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build
+```
 
-### Features:
-- **Multi-OS Matrix Builds:** Builds automatically run and test on Linux (`ubuntu-latest`), Windows (`windows-latest`), and macOS (`macos-latest`).
-- **Artifact Uploads:** After each successful build, the production output (`dist/` directory) is uploaded as a downloadable artifact for Windows, macOS, and Linux runners (`dist-ubuntu-latest`, `dist-windows-latest`, `dist-macos-latest`).
+---
+
+## Continuous Integration & Artifact Downloads (GitHub Actions)
+
+This repository includes a multi-platform GitHub Actions CI/CD workflow configured in `.github/workflows/build.yml`.
+
+### Workflow Triggers
+The workflow automatically runs on:
+- Pushes to `main` or `master` branches.
+- Pull Requests targeting `main` or `master` branches.
+
+### Downloadable Build Artifacts
+After a workflow run completes, you can download pre-built artifacts directly from the **Actions** tab on GitHub under the specific workflow run summary:
+
+1. **`android-apk`**: Contains `app-debug.apk`, ready for installation on Android devices or emulators.
+2. **`ios-build`**: Contains the generated iOS project bundle built on `macos-latest`.
+3. **`dist-ubuntu-latest`**: Production Web build bundle for Linux environments.
+4. **`dist-windows-latest`**: Production Web build bundle for Windows environments.
+5. **`dist-macos-latest`**: Production Web build bundle for macOS environments.
+
+To download an artifact:
+1. Navigate to the **Actions** tab of the GitHub repository.
+2. Select the latest workflow run ("Multi-Platform Build and Artifact Uploads").
+3. Scroll down to the **Artifacts** section at the bottom of the summary page.
+4. Click on **`android-apk`** or any other desired platform artifact to download the zip file.
