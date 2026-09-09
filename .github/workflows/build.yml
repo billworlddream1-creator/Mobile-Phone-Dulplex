@@ -55,7 +55,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Install dependencies
         run: npm ci
@@ -64,7 +64,7 @@ jobs:
         run: npm run build
 
       - name: Install Capacitor for Android
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android
+        run: npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6
 
       - name: Initialize Capacitor Project
         run: npx cap init "Mobile Phone Duplex" "com.example.mobilephoneduplex" --web-dir dist
@@ -105,13 +105,15 @@ jobs:
         run: npm run build
 
       - name: Install Capacitor for iOS
-        run: npm install @capacitor/cli @capacitor/core @capacitor/ios
+        run: npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/ios@6
 
       - name: Initialize Capacitor Project
         run: npx cap init "Mobile Phone Duplex" "com.example.mobilephoneduplex" --web-dir dist
 
       - name: Add iOS Platform
-        run: npx cap add ios
+        run: |
+          npx cap add ios
+          sed -i '' "s/platform :ios, '13.0'/platform :ios, '14.0'/g" ios/App/Podfile || true
 
       - name: Build iOS App Scheme
         run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build
